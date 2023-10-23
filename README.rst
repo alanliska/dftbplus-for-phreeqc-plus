@@ -18,6 +18,7 @@ substituted by huge() function (due to Android compiler limitations)
 # Compilation #
 
 unzip _deps.zip
+unzip external.zip
 mkdir build
 mv _deps ./build/
 cd build
