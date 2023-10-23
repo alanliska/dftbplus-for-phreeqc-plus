@@ -4,6 +4,31 @@ DFTB+: general package for performing fast atomistic calculations
 
 |lgpl badge|
 
+#### This is the DFTB+ fork used in the mobile app PHREEQC plus ####
+
+# Changes in this fork #
+
+* all source files (including the build/_deps subfolders) containing function ieee 
+substituted by huge() function (due to Android compiler limitations)
+
+* added the stamp defining the release (formatout.F90)
+
+* IMPORTANT: dftb+ binaries linked with libopenblas.a do not work in x86 devices - it is recommended to use liblapack.a and libblas.a
+
+# Compilation #
+
+unzip _deps.zip
+mkdir build
+mv _deps ./build/
+cd build
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/libblas.a/and/liblapack.a/and/static_python_libs
+export PATH=$PATH:/path/to/include
+cmake .. -DCMAKE_INSTALL_PREFIX=/path/to/install -DWITH_MPI=FALSE -DWITH_OMP=FALSE -DWITH_ARPACK=TRUE -DWITH_PLUMED=FALSE -DWITH_SOCKETS=FALSE -DWITH_GPU=FALSE -DWITH_MAGMA=FALSE -DWITH_POISSON=FALSE -DARPACK_LIBRARY=/path/to/libarpack.a -DWITH_TBLITE=TRUE -DWITH_MBD=TRUE -DWITH_TRANSPORT=FALSE -DWITH_SDFTD3=TRUE -DWITH_API=TRUE -DWITH_CHIMES=FALSE -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DFETCHCONTENT_FULLY_DISCONNECTED=ON
+open link.txt, substitute -lpython3.9 by path /path/to/libpython3.7m.a
+make install
+
+####
+
 DFTB+ is a software package for carrying out fast quantum mechanical atomistic
 calculations based on the Density Functional Tight Binding method. The most
 recent features are described in the (open access) `DFTB+ paper

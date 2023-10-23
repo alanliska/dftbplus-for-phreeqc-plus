@@ -14,9 +14,6 @@ program test_fileinit
   use testhelpers, only : writeAutotestTag
   implicit none
 
-  ! How often should the test repeated
-  integer, parameter :: nIter = 2
-
   ! double precision real
   integer, parameter :: dp = kind(1.0d0)
 
@@ -31,90 +28,70 @@ program test_fileinit
       & 0.0000000000000000_dp, 5.1278583974043830_dp, 5.1278583974043830_dp,&
       & 5.1278583974043830_dp, 0.0000000000000000_dp, 5.1278583974043830_dp], [3, 3])
 
-  call main_()
+  type(TDftbPlus) :: dftbp
+  type(TDftbPlusInput) :: input
 
-contains
+  real(dp) :: merminEnergy
+  real(dp) :: coords(3, 2), latVecs(3, 3), gradients(3, 2), grossCharges(2), stressTensor(3, 3)
 
-  !! Main test routine
-  !!
-  !! All non-constant variables must be defined here to ensure that they are all explicitely
-  !! deallocated before the program finishes  (avoiding residual memory that tools like valgrind notice).
-  !!
-  subroutine main_()
+  integer :: devNull
 
-    type(TDftbPlus), allocatable :: dftbp
-    type(TDftbPlusInput), allocatable :: input
+  character(:), allocatable :: DftbVersion
+  integer :: major, minor, patch
 
-    real(dp) :: merminEnergy
-    real(dp) :: coords(3, 2), latVecs(3, 3), gradients(3, 2), grossCharges(2), stressTensor(3, 3)
+  call getDftbPlusBuild(DftbVersion)
+  write(*,*)'DFTB+ build: ' // "'" // trim(DftbVersion) // "'"
+  call getDftbPlusApi(major, minor, patch)
+  write(*,"(1X,A,1X,I0,'.',I0,'.',I0)")'API version:', major, minor, patch
 
-    integer :: devNull
+  ! Note: setting the global standard output to /dev/null to suppress output and run-time error
+  ! messages
+  open(newunit=devNull, file="/dev/null", action="write")
+  !call TDftbPlus_init(dftbp, outputUnit=devNull)
 
-    character(:), allocatable :: DftbVersion
-    integer :: major, minor, patch
-    integer :: iIter
+  call TDftbPlus_init(dftbp)
 
-    do iIter = 1, nIter
-      allocate(dftbp)
-      allocate(input)
+  ! You should provide the dftb_in.hsd and skfile found in the test/app/dftb+/non-scc/Si_2/ folder
+  call dftbp%getInputFromFile("dftb_in.hsd", input)
+  call dftbp%setupCalculator(input)
 
-      call getDftbPlusBuild(DftbVersion)
-      write(*,*)'DFTB+ build: ' // "'" // trim(DftbVersion) // "'"
-      call getDftbPlusApi(major, minor, patch)
-      write(*,"(1X,A,1X,I0,'.',I0,'.',I0)")'API version:', major, minor, patch
+  ! a simple check for data values in the file
+  if (dftbp%nrOfAtoms() /= size(coords, dim=2)) then
+    print *, "Mismatch between expected number of atoms and dftb_in.hsd file"
+    call TDftbPlus_destruct(dftbp)
+    stop
+  end if
 
-      ! Note: setting the global standard output to /dev/null to suppress output and run-time error
-      ! messages
-      open(newunit=devNull, file="/dev/null", action="write")
+  ! replace the lattice vectors and coordinates in the document tree
+  latVecs(:,:) = initialLatVecs
+  coords(:,:) = initialCoords
+  call dftbp%setGeometry(coords, latVecs)
 
-      !call TDftbPlus_init(dftbp, outputUnit=devNull)
-      call TDftbPlus_init(dftbp)
+  ! evaluate energy and forces
+  call dftbp%getEnergy(merminEnergy)
+  call dftbp%getGradients(gradients)
+  print "(A,F15.10)", 'Obtained Mermin Energy:', merminEnergy
+  print "(A,3F15.10)", 'Obtained gradient of atom 1:', gradients(:,1)
 
-      ! You should provide the dftb_in.hsd and skfile found in the test/app/dftb+/non-scc/Si_2/ folder
-      call dftbp%getInputFromFile("dftb_in.hsd", input)
-      call dftbp%setupCalculator(input)
+  ! make a small displacement in the lattice vectors and coordinates
+  latVecs(1, 1) = latVecs(1, 1) + 0.1_dp * AA__Bohr
+  coords(1, 1) = coords(1, 1) + 0.2_dp * AA__Bohr
+  call dftbp%setGeometry(coords, latVecs)
 
-      ! a simple check for data values in the file
-      if (dftbp%nrOfAtoms() /= size(coords, dim=2)) then
-        print *, "Mismatch between expected number of atoms and dftb_in.hsd file"
-        return
-      end if
+  ! re-calculate energy and forces
+  call dftbp%getEnergy(merminEnergy)
+  call dftbp%getGradients(gradients)
+  call dftbp%getGrossCharges(grossCharges)
+  call dftbp%getStressTensor(stressTensor)
+  print "(A,F15.10)", 'Obtained Mermin Energy:', merminEnergy
+  print "(A,3F15.10)", 'Obtained gradient of atom 1:', gradients(:,1)
+  print "(A,2F15.10)", 'Obtained charges:', grossCharges
 
-      ! replace the lattice vectors and coordinates in the document tree
-      latVecs(:,:) = initialLatVecs
-      coords(:,:) = initialCoords
-      call dftbp%setGeometry(coords, latVecs)
+  ! clean up
+  call TDftbPlus_destruct(dftbp)
 
-      ! evaluate energy and forces
-      call dftbp%getEnergy(merminEnergy)
-      call dftbp%getGradients(gradients)
-      print "(A,F15.10)", 'Obtained Mermin Energy:', merminEnergy
-      print "(A,3F15.10)", 'Obtained gradient of atom 1:', gradients(:,1)
-
-      ! make a small displacement in the lattice vectors and coordinates
-      latVecs(1, 1) = latVecs(1, 1) + 0.1_dp * AA__Bohr
-      coords(1, 1) = coords(1, 1) + 0.2_dp * AA__Bohr
-      call dftbp%setGeometry(coords, latVecs)
-
-      ! re-calculate energy and forces
-      call dftbp%getEnergy(merminEnergy)
-      call dftbp%getGradients(gradients)
-      call dftbp%getGrossCharges(grossCharges)
-      call dftbp%getStressTensor(stressTensor)
-      print "(A,F15.10)", 'Obtained Mermin Energy:', merminEnergy
-      print "(A,3F15.10)", 'Obtained gradient of atom 1:', gradients(:,1)
-      print "(A,2F15.10)", 'Obtained charges:', grossCharges
-
-      ! Deallocating instances to trigger finalizers
-      deallocate(dftbp)
-      deallocate(input)
-
-    end do
-
-    ! Write file for internal test system
-    call writeAutotestTag(merminEnergy=merminEnergy, gradients=gradients, grossCharges=grossCharges,&
-        & stressTensor=stressTensor)
-
-  end subroutine main_
+  ! Write file for internal test system
+  call writeAutotestTag(merminEnergy=merminEnergy, gradients=gradients, grossCharges=grossCharges,&
+      & stressTensor = stressTensor)
 
 end program test_fileinit

@@ -16,7 +16,7 @@
 !> Nocedal, Wright - Numerical Optimization, Springer
 !>
 module dftbp_geoopt_lbfgs
-  use, intrinsic :: ieee_arithmetic, only : ieee_is_nan
+!  use, intrinsic :: ieee_arithmetic, only : ieee_is_nan
   use dftbp_common_accuracy, only : dp
   use dftbp_geoopt_linemin, only : TLineMin, TLineMin_init
   use dftbp_io_message, only : error, warning
@@ -885,12 +885,14 @@ contains
           & this%alphaTemp, this%phiTemp)
     end if
 
-    if (ieee_is_nan(this%alphaNew) .or. (this%iter == 0)&
+!    if (ieee_is_nan(this%alphaNew) .or. (this%iter == 0)&
+    if (this%alphaNew > huge(this%alphaNew) .or. (this%iter == 0)&
         & .or. (this%alphaNew > this%alphaHi - cCheck)&
         & .or. (this%alphaNew < this%alphaLo + cCheck)) then
       qCheck = delta2 * dAlpha
       this%alphaNew = quadMin(this%alphaLo, this%phiLo, this%dphiLo, this%alphaHi, this%phiHi)
-      if (ieee_is_nan(this%alphaNew) .or. (this%alphaNew > this%alphaHi - qCheck)&
+!      if (ieee_is_nan(this%alphaNew) .or. (this%alphaNew > this%alphaHi - qCheck)&
+      if (this%alphaNew > huge(this%alphaNew) .or. (this%alphaNew > this%alphaHi - qCheck)&
           & .or. (this%alphaNew < this%alphaLo + qCheck)) then
         ! Try Bisection
         this%alphaNew = this%alphaLo + 0.5_dp * dAlpha

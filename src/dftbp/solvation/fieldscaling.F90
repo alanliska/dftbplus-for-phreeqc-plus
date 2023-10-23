@@ -10,7 +10,7 @@
 !> Scale electrostatic field properties in presence of a solvent. Note, expressions assume spherical
 !> solvent cavity contains the system.
 module dftbp_solvation_fieldscaling
-  use, intrinsic :: ieee_arithmetic, only : ieee_is_finite
+!  use, intrinsic :: ieee_arithmetic, only : ieee_is_finite
   use dftbp_common_accuracy, only : dp
   use dftbp_io_message, only : warning
   use dftbp_solvation_solvation, only : TSolvation
@@ -75,11 +75,11 @@ contains
     end if
 
     this%is_finite = .false.
-    if (ieee_is_finite(this%eps_r)) then
+!    if (ieee_is_finite(this%eps_r)) then
       if (this%eps_r < huge(this%eps_r)) then
         this%is_finite = .true.
       end if
-    end if
+!    end if
 
   end subroutine init_TScaleExtEField
 

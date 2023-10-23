@@ -182,9 +182,12 @@ contains
       end if
     end do
 
-    if (present(splineRepIn)) then
-      call readSplineRep(file%unit, fileName, splineRepIn, iSp1, iSp2)
+    if (.not. present(splineRepIn)) then
+      call closeFile(file)
+      return
     end if
+
+    call readSplineRep(file%unit, fileName, splineRepIn, iSp1, iSp2)
 
     ! Read range-separated parameter(s)
     if (present(rangeSepSK)) then
@@ -273,8 +276,6 @@ contains
     logical :: hasspline
     real(dp), allocatable :: xend(:)
 
-    rewind(fp)
-
     ! Look for spline
     do
       read(fp, '(A)', iostat=iostat) chdummy
@@ -360,8 +361,6 @@ contains
       fd = file%unit
       call checkIoError(iErr, fname, "Unable to open file")
     end if
-
-    rewind(fd)
 
     ! Seek range-separated extra tag in SK-file
     do

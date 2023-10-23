@@ -61,7 +61,6 @@ module dftbp_dftbplus_initprogram
   use dftbp_dftb_spin, only: Spin_getOrbitalEquiv, ud2qm, qm2ud
   use dftbp_dftb_thirdorder, only : TThirdOrderInp, TThirdOrder, ThirdOrder_init
   use dftbp_dftb_uniquehubbard, only : TUniqueHubbard, TUniqueHubbard_init
-  use dftbp_dftb_elecconstraints, only : TElecConstraint, TElecConstraint_init, TElecConstraintInput
   use dftbp_dftbplus_elstattypes, only : elstatTypes
   use dftbp_dftbplus_forcetypes, only : forceTypes
   use dftbp_dftbplus_inputdata, only : TParallelOpts, TInputData, TRangeSepInp, TControl, TBlacsOpts
@@ -148,7 +147,7 @@ module dftbp_dftbplus_initprogram
 
   private
   public :: TDftbPlusMain, TCutoffs, TNegfInt
-  public :: initReferenceCharges, updateReferenceShellCharges, initElectronNumber
+  public :: initReferenceCharges, initElectronNumbers
 #:if WITH_TRANSPORT
   public :: overrideContactCharges
 #:endif
@@ -361,10 +360,10 @@ module dftbp_dftbplus_initprogram
     !> Fix Fermi energy at specified value
     logical :: tFixEf
 
-    !> Fermi energy for each spin
+    !> Fermi energy per spin
     real(dp), allocatable :: Ef(:)
 
-    !> Filling temp, as updated by MD.
+    !> Filling temp updated by MD.
     logical :: tSetFillingTemp
 
     !> Choice of electron distribution function, defaults to Fermi
@@ -474,9 +473,6 @@ module dftbp_dftbplus_initprogram
 
     !> Is the contribution from an excited state needed for the forces
     logical :: tCasidaForces
-
-    !> Optimization of conical intersections
-    logical :: isCIopt = .false.
 
     !> Are forces being returned
     logical :: tPrintForces
@@ -740,7 +736,7 @@ module dftbp_dftbplus_initprogram
     logical :: isLinResp
 
     !> Calculate Z vector for excited properties
-    logical :: tLinRespZVect = .false.
+    logical :: tLinRespZVect
 
     !> Data type for pp-RPA
     type(TppRPAcal), allocatable :: ppRPA
@@ -753,9 +749,6 @@ module dftbp_dftbplus_initprogram
 
     !> Whether to run a range separated calculation
     logical :: isRangeSep
-
-    !> Whether constraints are imposed on electronic ground state
-    logical :: isElecConstr
 
     !> Range-separation data
     type(TRangeSepFunc), allocatable :: rangeSep
@@ -837,9 +830,6 @@ module dftbp_dftbplus_initprogram
 
     !> Write cavity information as cosmo file
     logical :: tWriteCosmoFile
-
-    !> Structure holding electronic constraints
-    type(TElecConstraint), allocatable :: elecConstraint
 
     !> Library interface handler
     type(TTBLite), allocatable :: tblite
@@ -946,11 +936,8 @@ module dftbp_dftbplus_initprogram
     !> Forces on any external charges
     real(dp), allocatable :: chrgForces(:,:)
 
-    !> Excited state force addition (xyz,atom,state)
-    real(dp), allocatable :: excitedDerivs(:,:,:)
-
-    !> Nonadiabatic coupling vectors
-    real(dp), allocatable :: naCouplings(:,:,:)
+    !> Excited state force addition
+    real(dp), allocatable :: excitedDerivs(:,:)
 
     !> Dipole moments, when available, for whichever determinants are present
     real(dp), allocatable :: dipoleMoment(:, :)
@@ -981,9 +968,6 @@ module dftbp_dftbplus_initprogram
 
     !> Contains (iK, iS) tuples to be processed in parallel by various processor groups
     type(TParallelKS) :: parallelKS
-
-    !> True, if electron dynamics input block is present
-    logical :: isElecDyn
 
     !> Electron dynamics
     type(TElecDynamics), allocatable :: electronDynamics
@@ -1154,7 +1138,6 @@ module dftbp_dftbplus_initprogram
     procedure :: allocateDenseMatrices
     procedure :: getDenseDescCommon
     procedure :: ensureRangeSeparatedReqs
-    procedure :: ensureConstrainedDftbReqs
     procedure :: initRangeSeparated
     procedure :: initPlumed
 
@@ -1301,7 +1284,9 @@ contains
 
     logical :: tGeoOptRequiresEgy, isOnsiteCorrected
     type(TStatus) :: errStatus
+
     @:ASSERT(input%tInitialized)
+
     write(stdOut, "(/, A)") "Starting initialization..."
     write(stdOut, "(A80)") repeat("-", 80)
 
@@ -1336,10 +1321,7 @@ contains
     this%tSpinOrbit = input%ctrl%tSpinOrbit
     this%tDualSpinOrbit = input%ctrl%tDualSpinOrbit
     this%t2Component = input%ctrl%t2Component
-    this%isXlbomd = allocated(input%ctrl%xlbomd)
     this%isRangeSep = allocated(input%ctrl%rangeSepInp)
-    this%isElecConstr = allocated(input%ctrl%elecConstraintInp)
-    this%isElecDyn = allocated(input%ctrl%elecDynInp)
 
     if (this%t2Component) then
       this%nSpin = 4
@@ -1488,7 +1470,7 @@ contains
       call error("SCC iterations must be larger than 0")
     end if
     if (this%tSccCalc) then
-      if (this%isElecDyn) then
+      if (allocated(input%ctrl%elecDynInp)) then
         if (input%ctrl%elecDynInp%tReadRestart .and. .not.input%ctrl%elecDynInp%tPopulations) then
           this%maxSccIter = 0
           this%isSccConvRequired = .false.
@@ -1587,7 +1569,7 @@ contains
 
     this%nrChrg = input%ctrl%nrChrg
     this%nrSpinPol = input%ctrl%nrSpinPol
-    call initElectronNumber(this%q0, this%nrChrg, this%nrSpinPol, this%nSpin, this%orb,&
+    call initElectronNumbers(this%q0, this%nrChrg, this%nrSpinPol, this%nSpin, this%orb,&
         & this%nEl0, this%nEl)
     call initElectronFilling_(input, this%nSpin, this%Ef, this%iDistribFn, this%tempElec,&
         & this%tFixEf, this%tSetFillingTemp, this%tFillKSep)
@@ -1611,10 +1593,7 @@ contains
     end if
     call initTransport_(this, env, input, this%electronicSolver, this%nSpin, this%tempElec,&
         & this%tNegf, this%isAContactCalc, this%mu, this%negfInt, this%ginfo, this%transpar,&
-        & this%writeTunn, this%tWriteLDOS, this%regionLabelLDOS, errStatus)
-    if (errStatus%hasError()) then
-      call error(errStatus%message)
-    end if
+        & this%writeTunn, this%tWriteLDOS, this%regionLabelLDOS)
   #:else
     this%tTunn = .false.
     this%tLocalCurrents = .false.
@@ -1885,12 +1864,9 @@ contains
     if (this%forceType == forceTypes%dynamicT0 .and. this%tempElec > minTemp) then
        call error("This ForceEvaluation method requires the electron temperature to be zero")
      end if
-     if (this%isLinResp) then
-       tRequireDerivator = (this%tForces .or. input%ctrl%lrespini%tNaCoupling)
-     else
-       tRequireDerivator = this%tForces
-     end if
-     if (.not. tRequireDerivator .and. this%isElecDyn) then
+
+     tRequireDerivator = this%tForces
+     if (.not. tRequireDerivator .and. allocated(input%ctrl%elecDynInp)) then
        tRequireDerivator = input%ctrl%elecDynInp%tIons
      end if
      if (tRequireDerivator) then
@@ -1970,9 +1946,6 @@ contains
       end if
       if (this%isRangeSep) then
         call error("Range separated calculations do not yet work with transport calculations")
-      end if
-      if (this%isElecConstr) then
-        call error("Constrained DFTB calculations do not yet support electron transport.")
       end if
     end if
   #:endif
@@ -2257,12 +2230,6 @@ contains
       this%cutOff%mCutOff = max(this%cutOff%mCutOff, this%halogenXCorrection%getRCutOff())
     end if
 
-    if (allocated(input%ctrl%elecConstraintInp)) then
-      call this%ensureConstrainedDftbReqs(input%ctrl%elecConstraintInp)
-      allocate(this%elecConstraint)
-      call TElecConstraint_init(this%elecConstraint, input%ctrl%elecConstraintInp, this%orb)
-    end if
-
     this%tDipole = this%tMulliken
     if (this%tDipole) then
       block
@@ -2272,14 +2239,14 @@ contains
           call warning("Dipole printed for a charged system : origin dependent quantity")
           isDipoleDefined = .false.
         end if
-        if (this%tPeriodic .or. this%tHelical) then
+        if (this%tPeriodic.or.this%tHelical) then
           call warning("Dipole printed for extended system : value printed is not well defined")
           isDipoleDefined = .false.
         end if
         if (.not.isDipoleDefined) then
-          write(this%dipoleMessage, "(A)") "Warning: dipole moment is not defined absolutely!"
+          write(this%dipoleMessage, "(A)")"Warning: dipole moment is not defined absolutely!"
         else
-          write(this%dipoleMessage, "(A)") ""
+          write(this%dipoleMessage, "(A)")""
         end if
       end block
     end if
@@ -2459,7 +2426,7 @@ contains
       this%tPrintExcitedEigVecs = input%ctrl%lrespini%tPrintEigVecs
       this%tLinRespZVect = (input%ctrl%lrespini%tMulliken .or. this%tCasidaForces .or.&
           & input%ctrl%lrespini%tCoeffs .or. this%tPrintExcitedEigVecs .or.&
-          & input%ctrl%lrespini%tWriteDensityMatrix .or. input%ctrl%lrespini%tNaCoupling)
+          & input%ctrl%lrespini%tWriteDensityMatrix)
 
       if (allocated(this%onSiteElements) .and. this%tLinRespZVect) then
         call error("Excited state property evaluation currently incompatible with onsite&
@@ -2603,6 +2570,7 @@ contains
     call this%initPlumed(env, input%ctrl%tPlumed, this%tMD, this%plumedCalc)
 
     ! Check for extended Born-Oppenheimer MD
+    this%isXlbomd = allocated(input%ctrl%xlbomd)
     if (this%isXlbomd) then
       if (input%ctrl%iThermostat /= 0) then
         call error("XLBOMD does not work with thermostats yet")
@@ -2759,7 +2727,6 @@ contains
     end if
 
     call this%initDetArrays()
-
     call this%initArrays(env, input)
 
   #:if WITH_TRANSPORT
@@ -2855,7 +2822,6 @@ contains
     else
       this%pCoord0Out => this%coord0
     end if
-
 
     ! Projection of eigenstates onto specific regions of the system
     this%tProjEigenvecs = input%ctrl%tProjEigenvecs
@@ -3597,7 +3563,7 @@ contains
     if (this%deltaDftb%isNonAufbau .and. allocated(this%ppRPA)) then
       call error("Delta DFTB incompatible with ppRPA")
     end if
-    if (this%deltaDftb%isNonAufbau .and. this%isElecDyn) then
+    if (this%deltaDftb%isNonAufbau .and. allocated(input%ctrl%elecDynInp)) then
       call error("Delta DFTB incompatible with electron dynamics")
     end if
     if (this%deltaDftb%isNonAufbau .and. this%tFixEf) then
@@ -3666,7 +3632,7 @@ contains
     end if
 
     ! Electron dynamics stuff
-    if (this%isElecDyn) then
+    if (allocated(input%ctrl%elecDynInp)) then
 
       if (this%t2Component) then
         call error("Electron dynamics is not compatibile with this spinor Hamiltonian")
@@ -4047,6 +4013,8 @@ contains
       #:endfor
     end if
 
+
+    !TODO(Alex) Could definitely split the code here
     if (allocated(this%reks)) return
 
     ! Charges not read from file
@@ -4182,32 +4150,16 @@ contains
   ! Assign reference charge arrays, q0 and qShell0
   subroutine initReferenceCharges(species0, orb, referenceN0, nSpin, q0, qShell0, customOccAtoms,&
       & customOccFillings)
-
-    !> Species of central cell atoms
     integer, intent(in) :: species0(:)
-
-    !> Atomic orbital data
     type(TOrbitals), intent(in) :: orb
-
-    !> Reference neutral atom charges for each species
     real(dp), intent(in) :: referenceN0(:,:)
-
-    !> Number of spin channels
     integer, intent(in) :: nSpin
-
-    !> Reference 'neutral' charges for each atom orbital
-    real(dp), allocatable, intent(out) :: q0(:,:,:)
-
-    !> Shell resolved neutral reference
-    real(dp), allocatable, intent(out) :: qShell0(:,:)
-
-    !> Array of lists of atoms where the 'neutral' shell occupation is modified
+    real(dp), allocatable, intent(out) :: q0(:,:,:), qShell0(:,:)
     type(TWrappedInt1), optional, intent(in) :: customOccAtoms(:)
-
-    !> Modified occupations for shells of the groups atoms in customOccAtoms
     real(dp), optional, intent(in) :: customOccFillings(:,:)
 
     integer :: nAtom
+    integer :: iAt, iSp, iSh
 
     @:ASSERT(present(customOccAtoms) .eqv. present(customOccFillings))
 
@@ -4222,31 +4174,6 @@ contains
     end if
 
     allocate(qShell0(orb%mShell, nAtom))
-    call updateReferenceShellCharges(qShell0, q0, orb, nAtom, species0)
-
-  end subroutine initReferenceCharges
-
-
-  !> Updates the reference shell charges
-  subroutine updateReferenceShellCharges(qShell0, q0, orb, nAtom, species0)
-
-    !> Shell resolved neutral reference
-    real(dp), intent(out) :: qShell0(:,:)
-
-    !> Reference 'neutral' charges for each atom's orbitals
-    real(dp), intent(in) :: q0(:,:,:)
-
-    !> Atomic orbital data
-    type(TOrbitals), intent(in) :: orb
-
-    !> Atoms in the system
-    integer, intent(in) :: nAtom
-
-    !> Species of central cell atoms
-    integer, intent(in) :: species0(:)
-
-    integer :: iAt, iSp, iSh
-
     do iAt = 1, nAtom
       iSp = species0(iAt)
       do iSh = 1, orb%nShell(iSp)
@@ -4254,31 +4181,16 @@ contains
       end do
     end do
 
-  end subroutine updateReferenceShellCharges
+  end subroutine initReferenceCharges
 
 
-  !> Set number of electrons
-  subroutine initElectronNumber(q0, nrChrg, nSpinPol, nSpin, orb, nEl0, nEl)
-
-    !> Reference 'neutral' charges for each atom's orbitals
+  ! Set number of electrons
+  subroutine initElectronNumbers(q0, nChrg, nSpinPol, nSpin, orb, nEl0, nEl)
     real(dp), intent(in) :: q0(:,:,:)
-
-    !> Total charge
-    real(dp), intent(in) :: nrChrg
-
-    !> Spin polarisation
-    real(dp), intent(in) :: nSpinPol
-
-    !> Number of spin components, 1 is unpolarised, 2 is polarised, 4 is noncolinear / spin-orbit
+    real(dp), intent(in) :: nChrg, nSpinPol
     integer, intent(in) :: nSpin
-
-    !> Atomic orbital data
     type(TOrbitals), intent(in) :: orb
-
-    !> Nr. of all electrons if neutral
     real(dp), intent(out) :: nEl0
-
-    !> Nr. of electrons
     real(dp), allocatable, intent(out) :: nEl(:)
 
     nEl0 = sum(q0(:,:,1))
@@ -4293,13 +4205,13 @@ contains
     end if
     nEl(:) = 0.0_dp
     if (nSpin == 1 .or. nSpin == 4) then
-      nEl(1) = nEl0 - nrChrg
+      nEl(1) = nEl0 - nChrg
       if(ceiling(nEl(1)) > 2.0_dp * orb%nOrb) then
         call error("More electrons than basis functions!")
       end if
     else
-      nEl(1) = 0.5_dp * (nEl0 - nrChrg + nSpinPol)
-      nEl(2) = 0.5_dp * (nEl0 - nrChrg - nSpinPol)
+      nEl(1) = 0.5_dp * (nEl0 - nChrg + nSpinPol)
+      nEl(2) = 0.5_dp * (nEl0 - nChrg - nSpinPol)
       if (any(ceiling(nEl) > orb%nOrb)) then
         call error("More electrons than basis functions!")
       end if
@@ -4309,7 +4221,7 @@ contains
       call error("Less than 0 electrons!")
     end if
 
-  end subroutine initElectronNumber
+  end subroutine initElectronNumbers
 
 
   ! Set up reference population
@@ -4339,30 +4251,12 @@ contains
   !> Initializes electron filling related variables
   subroutine initElectronFilling_(input, nSpin, Ef, iDistribFn, tempElec, tFixEf, tSetFillingTemp,&
       & tFillKSep)
-
-    !> Holds the parsed input data.
     type(TInputData), intent(in) :: input
-
-    !> Number of spin components, 1 is unpolarised, 2 is polarised, 4 is noncolinear / spin-orbit
     integer, intent(in) :: nSpin
-
-    !> Fermi energy for each spin
     real(dp), allocatable, intent(out) :: Ef(:)
-
-    !> Choice of electron distribution function, defaults to Fermi
     integer, intent(out) :: iDistribFn
-
-    !> Electron temperature
     real(dp), intent(out) :: tempElec
-
-    !> Fix Fermi energy at specified value
-    logical, intent(out) :: tFixEf
-
-    !> Filling temp, as updated by MD.
-    logical, intent(out) :: tSetFillingTemp
-
-    !> If K points should filled separately
-    logical, intent(out) :: tFillKSep
+    logical, intent(out) :: tFixEf, tSetFillingTemp, tFillKSep
 
     if (nSpin == 4) then
       allocate(Ef(1))
@@ -4569,8 +4463,7 @@ contains
 
   !> Initialise a transport calculation
   subroutine initTransport_(this, env, input, electronicSolver, nSpin, tempElec, tNegf,&
-      & isAContactCalc, mu, negfInt, ginfo, transpar, writeTunn, tWriteLDOS, regionLabelLDOS,&
-      & errStatus)
+      & isAContactCalc, mu, negfInt, ginfo, transpar, writeTunn, tWriteLDOS, regionLabelLDOS)
 
     !> Instance
     class(TDftbPlusMain), intent(in) :: this
@@ -4618,9 +4511,6 @@ contains
     !> Labels for different regions for DOS output
     character(lc), allocatable, intent(out) :: regionLabelLDOS(:)
 
-    !> Operation status, if an error needs to be returned
-    type(TStatus), intent(inout) :: errStatus
-
     logical :: tAtomsOutside
     integer :: iSpin
     integer :: nSpinChannels, iCont, jCont
@@ -4642,8 +4532,6 @@ contains
       ! calculation without spin (poisson does not support spin dependent
       ! built in potentials)
       if (transpar%ncont > 0) then
-        call testTransportAtoms_(transpar, this%nAtom, errStatus)
-        @:PROPAGATE_ERROR(errStatus)
         allocate(mu(transpar%ncont, nSpinChannels))
         mu(:,:) = 0.0_dp
         do iSpin = 1, nSpinChannels
@@ -4709,46 +4597,6 @@ contains
 
   end subroutine initTransport_
 
-
-  !> Checks for atoms in two regions or not in any region of a transport calculation
-  subroutine testTransportAtoms_(transpar, nAtom, errStatus)
-
-    !> Transport calculation parameters
-    type(TTransPar), intent(in) :: transpar
-
-    !> Number of atoms in the provided device + contacts
-    integer, intent(in) :: nAtom
-
-    !> Operation status, if an error needs to be returned
-    type(TStatus), intent(inout) :: errStatus
-
-    logical, allocatable :: atomInRegion(:)
-    integer :: ii
-
-    allocate(atomInRegion(nAtom), source=.false.)
-
-    ! check for atoms in multiple contact ranges/device
-    atomInRegion(transpar%idxdevice(1):transpar%idxdevice(2)) = .true.
-    do ii = 1, transpar%nCont
-      if (any(atomInRegion(transpar%contacts(ii)%idxrange(1):transpar%contacts(ii)%idxrange(2))))&
-          & then
-        @:RAISE_FORMATTED_ERROR(errStatus, -1, "('Contact ''', A,''' contains atom ', I0,&
-            & ' which is also in another contact or device region')",&
-            & trim(transpar%contacts(ii)%name),&
-            & findloc(atomInRegion(transpar%contacts(ii)%idxrange(1):&
-            & transpar%contacts(ii)%idxrange(2)), .true.) + transpar%contacts(ii)%idxrange(1))
-      end if
-      atomInRegion(transpar%contacts(ii)%idxrange(1):transpar%contacts(ii)%idxrange(2)) = .true.
-    end do
-
-    ! Check for atoms missing from any of these regions
-    if (any(.not.atomInRegion)) then
-      @:RAISE_FORMATTED_ERROR(errStatus, -1, "('Atom ',I0, ' not in any contact or the device')",&
-          & findloc(atomInRegion, .false.))
-    end if
-
-  end subroutine testTransportAtoms_
-
 #:endif
 
   !> Initialises (clears) output files.
@@ -4807,8 +4655,7 @@ contains
     type(TInputData), intent(in) :: input
 
     logical :: isREKS
-    ! dLev is the number of states to include for non-adiabatic couplings
-    integer :: nSpinHams, sqrHamSize, iDet, dLev
+    integer :: nSpinHams, sqrHamSize, iDet
 
     isREKS = allocated(this%reks)
 
@@ -4839,31 +4686,8 @@ contains
       if (this%tExtChrg) then
         allocate(this%chrgForces(3, this%nExtChrg))
       end if
-
-      if (this%isLinResp) then
-        ! For CI optimization store gradient for several states,
-        ! otherwise store excited state gradient for state of interest only
-        if(this%linearResponse%isCIopt) then
-          if (.not. this%linearResponse%tNaCoupling) then
-            call error("Optimization of CI requires StateCouplings keyword.")
-          end if
-          dLev = this%linearResponse%indNACouplings(2) - this%linearResponse%indNACouplings(1) + 1
-          if (this%linearResponse%indNACouplings(1) == 0) then
-            allocate(this%excitedDerivs(3, this%nAtom, dLev-1))
-          else
-            allocate(this%excitedDerivs(3, this%nAtom, dLev))
-          end if
-          else  if (this%tLinRespZVect .and. this%tCasidaForces) then
-            allocate(this%excitedDerivs(3, this%nAtom, 1))
-        end if
-        this%isCIopt = this%linearResponse%isCIopt
-      end if
-    end if
-
-    if (this%isLinResp) then
-      if(this%linearResponse%tNaCoupling) then
-        dLev = this%linearResponse%indNACouplings(2) - this%linearResponse%indNACouplings(1) + 1
-        allocate(this%naCouplings(3, this%nAtom, dLev*(dLev-1)/2))
+      if (this%tLinRespZVect .and. this%tCasidaForces) then
+        allocate(this%excitedDerivs(3, this%nAtom))
       end if
     end if
 
@@ -4980,6 +4804,7 @@ contains
 
     !> Instance
     class(TDftbPlusMain), intent(inout) :: this
+
 
     this%nDets = this%deltaDftb%nDeterminant()
     if (this%nDets > 1) then
@@ -5412,38 +5237,6 @@ contains
   end function getMinSccIters
 
 
-  !> Stop if any setting incompatible with the constrained DFTB formalism is found.
-  subroutine ensureConstrainedDftbReqs(this, elecConstraintInp)
-
-    !> Instance
-    class(TDftbPlusMain), intent(inout) :: this
-
-    !> Input parameters for electronic constraints
-    type(TElecConstraintInput), intent(in) :: elecConstraintInp
-
-    if (.not. this%tSccCalc) then
-      call error("Electronically constrained calculations do not yet support non-SCC calculations.")
-    end if
-
-    if (this%isXlbomd) then
-      call error("Electronically constrained calculations do not yet support XLBOMD.")
-    end if
-
-    if (allocated(this%reks)) then
-      call error("Electronically constrained calculations do not yet support REKS.")
-    end if
-
-    if (this%deltaDftb%isNonAufbau) then
-      call error("Electronically constrained calculations do not yet support delta-DFTB.")
-    end if
-
-    if (this%isElecDyn) then
-      call error("Electronically constrained calculations do not yet support electron dynamics.")
-    end if
-
-  end subroutine ensureConstrainedDftbReqs
-
-
   !> Stop if any range separated incompatible setting is found
   subroutine ensureRangeSeparatedReqs(this, tShellResolved, rangeSepInp)
 
@@ -5598,7 +5391,7 @@ contains
       call warning(tmpStr)
     end if
 
-    if (input%ctrl%lrespini%nstat == 0 .and. (.not. input%ctrl%lrespini%isCIopt)) then
+    if (input%ctrl%lrespini%nstat == 0) then
       if (tCasidaForces) then
         call error("Excited forces only available for StateOfInterest non zero.")
       end if

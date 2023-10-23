@@ -42,7 +42,7 @@ module dftbp_derivs_perturb
   use dftbp_type_commontypes, only : TOrbitals
   use dftbp_type_densedescr, only : TDenseDescr
   use dftbp_type_parallelks, only : TParallelKS, TParallelKS_init
-  use, intrinsic :: ieee_arithmetic, only : ieee_value, ieee_quiet_nan
+!  use, intrinsic :: ieee_arithmetic, only : ieee_value, ieee_quiet_nan
 #:if WITH_MPI
   use dftbp_extlibs_mpifx, only : mpifx_allreduceip, MPI_SUM
 #:endif
@@ -1487,7 +1487,8 @@ contains
         @:RAISE_ERROR(errStatus, -1, "SCC in perturbation is NOT converged, maximal SCC&
             & iterations exceeded")
       else
-        qnan = ieee_value(1.0_dp, ieee_quiet_nan)
+!        qnan = ieee_value(1.0_dp, ieee_quiet_nan)
+	qnan = huge(1.0_dp)
         dRho(:,:) = qnan
         dqOut(:,:,:) = qnan
         if (allocated(idRho)) idRho(:,:) = qnan

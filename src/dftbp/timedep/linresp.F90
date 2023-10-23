@@ -23,7 +23,7 @@ module dftbp_timedep_linresp
   use dftbp_dftb_scc, only : TScc
   use dftbp_dftb_slakocont, only : TSlakoCont
   use dftbp_extlibs_arpack, only : withArpack
-  use dftbp_io_message, only : error, warning
+  use dftbp_io_message, only : error
   use dftbp_io_taggedoutput, only : TTaggedWriter
   use dftbp_timedep_linrespgrad, only : LinRespGrad_old
   use dftbp_timedep_linresptypes, only : TLinResp, linrespSolverTypes
@@ -67,7 +67,7 @@ module dftbp_timedep_linresp
     !> atom resolved Hubbard U
     real(dp), allocatable :: HubbardU(:)
 
-    !> atom resolved spinconstants
+    !> atom resolved spin constants
     real(dp), allocatable :: spinW(:)
 
     !> print excited state mulliken populations
@@ -87,15 +87,7 @@ module dftbp_timedep_linresp
 
     !> write X+Y vector sqrt(wij) / sqrt(omega) * F^ia_I
     logical :: tXplusY
-    !> should CI be optimized
-    logical :: isCIopt
 
-    !> Energy shift used in CI optimizer
-    real(dp) :: energyShiftCI
-
-    !> Should non-adiabatic couplings be computed
-    logical :: tNaCoupling
-    
     !> Initial and final state for non-adiabatic coupling evaluation
     integer :: indNACouplings(2)
 
@@ -195,7 +187,9 @@ contains
       call error("Excited energy window should be non-zero if used")
     end if
 
-    if(ini%tNaCoupling) then
+    if(all(ini%indNACouplings == 0)) then
+      this%tNaCoupling = .false.
+    else
       if (any(ini%indNACouplings < 0)) then
         call error("StateCouplings: Indices must be positive.")
       end if
@@ -208,20 +202,11 @@ contains
       if (this%tSpin) then
         call error('StateCouplings: Spin-polarized systems currently not available.')
       end if
-      if (ini%isCIopt .and. ini%indNACouplings(2)-ini%indNACouplings(1) > 1) then
-        call error("CI optimization: States must be neighbouring.")
-      end if
-      if (ini%isCIopt .and. ini%nstat /= 0) then
-        call warning("CI optimization: Setting of StateOfInterest will be ignored.")
-      end if
       this%tNaCoupling = .true.
       this%indNACouplings = ini%indNACouplings
       dLev = ini%indNACouplings(2) - ini%indNACouplings(1)
-    else
-      this%tNaCoupling = .false.
     endif
-    this%isCIopt = ini%isCIopt
-    this%energyShiftCI = ini%energyShiftCI
+
     this%writeMulliken = ini%tMulliken
     this%writeCoeffs = ini%tCoeffs
     this%tGrndState = ini%tGrndState
@@ -337,7 +322,7 @@ contains
   !> Wrapper to call linear response calculations of excitations and forces in excited states
   subroutine LinResp_addGradients(tSpin, this, iAtomStart, eigVec, eigVal, SSqrReal, filling,&
       & coords0, sccCalc, dqAt, species0, iNeighbour, img2CentCell, orb, skHamCont, skOverCont,&
-      & fdTagged, taggedWriter, rangeSep, excEnergy, allExcEnergies, excgradient, nacv,&
+      & fdTagged, taggedWriter, rangeSep, excEnergy, allExcEnergies, excgradient,&
       & derivator, rhoSqr, deltaRho, occNatural, naturalOrbs)
 
     !> is this a spin-polarized calculation
@@ -412,11 +397,8 @@ contains
     !> energies of all solved states
     real(dp), intent(inout), allocatable :: allExcEnergies(:)
 
-    !> contribution to forces from derivatives of excited state energy
-    real(dp), intent(inout), allocatable :: excgradient(:,:,:)
-
-    !> Non-adiabatic coupling vectors
-    real(dp), intent(inout), allocatable :: nacv(:,:,:)
+    !> contribution to forces from derivative of excited state energy
+    real(dp), intent(inout), allocatable :: excgradient(:,:)
 
     !> occupations of the natural orbitals from the density matrix
     real(dp), intent(inout), allocatable :: occNatural(:)
@@ -438,15 +420,15 @@ contains
       shiftPerAtom = shiftPerAtom + shiftPerL(1,:)
 
       if (allocated(occNatural)) then
-        call LinRespGrad_old(this, iAtomStart, eigVec, eigVal, sccCalc, dqAt, coords0,&
-            & SSqrReal, filling, species0, iNeighbour, img2CentCell, orb, fdTagged,&
-            & taggedWriter, rangeSep, excEnergy, allExcEnergies, deltaRho, shiftPerAtom, skHamCont,&
-            & skOverCont, excgradient, nacv, derivator, rhoSqr, occNatural, naturalOrbs)
+        call LinRespGrad_old(this, iAtomStart, eigVec, eigVal, sccCalc, dqAt, coords0, SSqrReal,&
+            & filling, species0, iNeighbour, img2CentCell, orb, fdTagged, taggedWriter, rangeSep,&
+            & excEnergy, allExcEnergies, deltaRho, shiftPerAtom, skHamCont, skOverCont,&
+            & excgradient, derivator, rhoSqr, occNatural, naturalOrbs)
       else
-        call LinRespGrad_old(this, iAtomStart, eigVec, eigVal, sccCalc, dqAt, coords0,&
-            & SSqrReal, filling, species0, iNeighbour, img2CentCell, orb, fdTagged,&
-            & taggedWriter, rangeSep, excEnergy, allExcEnergies, deltaRho, shiftPerAtom, skHamCont,&
-            & skOverCont, excgradient, nacv, derivator, rhoSqr)
+        call LinRespGrad_old(this, iAtomStart, eigVec, eigVal, sccCalc, dqAt, coords0, SSqrReal,&
+            & filling, species0, iNeighbour, img2CentCell, orb, fdTagged, taggedWriter, rangeSep,&
+            & excEnergy, allExcEnergies, deltaRho, shiftPerAtom, skHamCont, skOverCont,&
+            & excgradient, derivator, rhoSqr)
       end if
 
     else
