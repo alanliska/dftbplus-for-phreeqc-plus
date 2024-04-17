@@ -423,6 +423,15 @@ contains
         & '  data you use. Please consult the documentation of the SK-files for the', verticalBar,&
         & '  references.'
     write(stdOut, '(A,/,2A,/)') verticalBar, verticalBar, repeat(horizontalBar, headerWidth - 1)
+    write(stdOut, '(2A,I0,A)') verticalBar, '  Special version for Linux (Debian, aarch64, pie, static)'
+    write(stdOut, '(2A,I0,A)') verticalBar, '  linked with ARPACK, BLAS, CHIMESCALC, DFTD4, '
+    write(stdOut, '(2A,I0,A)') verticalBar, '  LAPACK, MBD, MCTC, MULTICHARGE, S-DFTD3, '
+    write(stdOut, '(2A,I0,A)') verticalBar, '  TBLITE, TOML-F Android/Linux libraries '
+    write(stdOut, '(2A,I0,A)') verticalBar, '  tailored to run on aarch64 powered Android devices '
+    write(stdOut, '(2A,I0,A)') verticalBar, '  compiled on April 15, 2024 '
+    write(stdOut, '(2A,I0,A)') verticalBar, '  by A. Liska & V. Ruzickova '
+    write(stdOut, '(A,/,2A,/,A)') verticalBar, verticalBar, repeat(horizontalBar, headerWidth - 1),&
+        & verticalBar
 
   end subroutine printDFTBHeader
 

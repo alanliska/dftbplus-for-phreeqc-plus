@@ -1,6 +1,5 @@
 *~
 *.pyc
-*.mod
 _gitmsg.saved.txt
 external/dftd3/origin
 external/dftd3/status
