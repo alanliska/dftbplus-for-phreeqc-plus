@@ -14,3 +14,5 @@ __pycache__
 tools/dptools/build
 .nfs*
 _build*
+external/dftd4/origin
+external/chimes/origin/
