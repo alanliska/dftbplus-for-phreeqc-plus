@@ -49,7 +49,7 @@ module dftbp_dftb_encharges
     !> CN scaling for EEQ model
     real(dp), allocatable :: kcn(:)
 
-  end type TEeqParam
+  end type
 
 
   !> Input for the EEQ model

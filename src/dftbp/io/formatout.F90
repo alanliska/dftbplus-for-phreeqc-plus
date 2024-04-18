@@ -387,13 +387,13 @@ contains
   end subroutine writeXYZFormat_fid
 
 
-  !> Writes the greeting message of dftb+ code(s) on stdout
-  subroutine printDFTBHeader(text, year)
+  !> Writes the greeting message of dftb+ on stdout
+  subroutine printDFTBHeader(release, year)
 
-    !> Additional text to print next to project name
-    character(len=*), intent(in) :: text
+    !> release version of the code
+    character(len=*), intent(in) :: release
 
-    !> Release year
+    !> release year
     integer, intent(in) :: year
 
     character, parameter :: verticalBar = '|'
@@ -401,7 +401,7 @@ contains
     integer, parameter :: headerWidth = 80
 
     write(stdOut, '(2A,/,A)') verticalBar, repeat(horizontalBar, headerWidth - 1), verticalBar
-    write(stdOut, '(3A)') verticalBar, '  DFTB+ ', trim(text)
+    write(stdOut, '(3A)') verticalBar, '  DFTB+ ', trim(release)
     write(stdOut, '(A)') verticalBar
     write(stdOut, '(2A,I0,A)') verticalBar, '  Copyright (C) 2006 - ', year,&
         & '  DFTB+ developers group'
@@ -423,12 +423,19 @@ contains
         & '  data you use. Please consult the documentation of the SK-files for the', verticalBar,&
         & '  references.'
     write(stdOut, '(A,/,2A,/)') verticalBar, verticalBar, repeat(horizontalBar, headerWidth - 1)
+<<<<<<< HEAD
     write(stdOut, '(2A,I0,A)') verticalBar, '  Special version for Linux (Debian, aarch64, pie, static)'
     write(stdOut, '(2A,I0,A)') verticalBar, '  linked with ARPACK, BLAS, CHIMESCALC, DFTD4, '
     write(stdOut, '(2A,I0,A)') verticalBar, '  LAPACK, MBD, MCTC, MULTICHARGE, S-DFTD3, '
     write(stdOut, '(2A,I0,A)') verticalBar, '  TBLITE, TOML-F Android/Linux libraries '
     write(stdOut, '(2A,I0,A)') verticalBar, '  tailored to run on aarch64 powered Android devices '
     write(stdOut, '(2A,I0,A)') verticalBar, '  compiled on April 15, 2024 '
+=======
+    write(stdOut, '(2A,I0,A)') verticalBar, '  Special version for Android (aarch64, pie)'
+    write(stdOut, '(2A,I0,A)') verticalBar, '  linked with ARPACK, BLAS, DFTD4, LAPACK, NEGF, MBD, MCTC, MSTORE, '
+    write(stdOut, '(2A,I0,A)') verticalBar, '  MUDPACK, MULTICHARGE, PYTHON, S-DFTD3, TBLITE, TOML-F, libraries '
+    write(stdOut, '(2A,I0,A)') verticalBar, '  compiled on July 21, 2023 '
+>>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
     write(stdOut, '(2A,I0,A)') verticalBar, '  by A. Liska & V. Ruzickova '
     write(stdOut, '(A,/,2A,/,A)') verticalBar, verticalBar, repeat(horizontalBar, headerWidth - 1),&
         & verticalBar

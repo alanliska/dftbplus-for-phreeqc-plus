@@ -10,7 +10,7 @@
 
 !> Implementation of the D4 dispersion model
 module dftbp_dftb_dispdftd4
-  use, intrinsic :: ieee_arithmetic, only : ieee_is_nan
+!  use, intrinsic :: ieee_arithmetic, only : ieee_is_nan
   use dftbp_common_accuracy, only : dp
   use dftbp_common_constants, only : pi, symbolToNumber
   use dftbp_common_environment, only : TEnvironment
@@ -573,7 +573,8 @@ contains
         end do
 
         gwk = expw * norm
-        if (ieee_is_nan(gwk)) then
+!        if (ieee_is_nan(gwk)) then
+	if (gwk > huge(gwk)) then
           if (maxval(ref%cn(:ref%nRef(iSp1), iSp1))&
               & == ref%cn(iRef1, iSp1)) then
             gwk = 1.0_dp
@@ -586,7 +587,8 @@ contains
         zetadq(iRef1, iAt1) = dzetaScale(calc%ga, eta1, qRef1, q(iAt1)+zEff1) * gwk
 
         dgwk = expd * norm - expw * dnorm * norm**2
-        if (ieee_is_nan(dgwk)) then
+!        if (ieee_is_nan(dgwk)) then
+	if (dgwk > huge(dgwk)) then
           dgwk = 0.0_dp
         end if
         zetadcn(iRef1, iAt1) = zetaScale(calc%ga, eta1, qRef1, q(iAt1) + zEff1) * dgwk
@@ -1380,7 +1382,8 @@ contains
         end do
 
         gwk = expw * norm
-        if (ieee_is_nan(gwk)) then
+        if (gwk > huge(gwk)) then
+!	if (ieee_is_nan(gwk)) then
           if (maxval(ref%cn(:ref%nRef(iSp1), iSp1))&
               & == ref%cn(iRef1, iSp1)) then
             gwk = 1.0_dp

@@ -2,7 +2,7 @@ Geometry = GenFormat {
     <<< "geo.gen"
 }
 
-Driver = {}
+Driver = ConjugateGradient{MaxSteps=0}
 Hamiltonian = DFTB {
     SCC = Yes
     SCCTolerance = 1e-10
@@ -20,6 +20,7 @@ Hamiltonian = DFTB {
 ExcitedState {
     Casida {
         NrOfExcitations = 10
+        StateOfInterest = 1
         Symmetry = Singlet
         Diagonaliser = Stratmann{}
         StateCouplings = {0 4}
@@ -32,8 +33,12 @@ Options {
 }
 
 ParserOptions {
-    ParserVersion = 13
+    ParserVersion = 12
 }            
 
-
+Parallel {
+  # Allow OMP threads explicitely to test for hybrid parallelisation with
+  # MPI-binary. (Check the manual before using this in production runs!)
+  UseOmpThreads = Yes
+}
 

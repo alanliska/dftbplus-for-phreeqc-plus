@@ -23,7 +23,7 @@ module dftbp_timedep_linresp
   use dftbp_dftb_scc, only : TScc
   use dftbp_dftb_slakocont, only : TSlakoCont
   use dftbp_extlibs_arpack, only : withArpack
-  use dftbp_io_message, only : error, warning
+  use dftbp_io_message, only : error
   use dftbp_io_taggedoutput, only : TTaggedWriter
   use dftbp_timedep_linrespgrad, only : LinRespGrad_old
   use dftbp_timedep_linresptypes, only : TLinResp, linrespSolverTypes
@@ -67,7 +67,11 @@ module dftbp_timedep_linresp
     !> Atom resolved Hubbard U
     real(dp), allocatable :: HubbardU(:)
 
+<<<<<<< HEAD
     !> Atom resolved spinconstants
+=======
+    !> atom resolved spin constants
+>>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
     real(dp), allocatable :: spinW(:)
 
     !> Print excited state mulliken populations
@@ -87,6 +91,7 @@ module dftbp_timedep_linresp
 
     !> Write X+Y vector sqrt(wij) / sqrt(omega) * F^ia_I
     logical :: tXplusY
+<<<<<<< HEAD
 
     !> Should CI be optimized
     logical :: isCIopt
@@ -97,6 +102,9 @@ module dftbp_timedep_linresp
     !> Should non-adiabatic couplings be computed
     logical :: tNaCoupling
 
+=======
+
+>>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
     !> Initial and final state for non-adiabatic coupling evaluation
     integer :: indNACouplings(2)
 
@@ -194,7 +202,13 @@ contains
       call error("Excited energy window should be non-zero if used")
     end if
 
+<<<<<<< HEAD
     if (ini%tNaCoupling) then
+=======
+    if(all(ini%indNACouplings == 0)) then
+      this%tNaCoupling = .false.
+    else
+>>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
       if (any(ini%indNACouplings < 0)) then
         call error("StateCouplings: Indices must be positive.")
       end if
@@ -207,20 +221,19 @@ contains
       if (this%tSpin) then
         call error('StateCouplings: Spin-polarized systems currently not available.')
       end if
-      if (ini%isCIopt .and. ini%indNACouplings(2)-ini%indNACouplings(1) > 1) then
-        call error("CI optimization: States must be neighbouring.")
-      end if
-      if (ini%isCIopt .and. ini%nstat /= 0) then
-        call warning("CI optimization: Setting of StateOfInterest will be ignored.")
-      end if
       this%tNaCoupling = .true.
       this%indNACouplings = ini%indNACouplings
       dLev = ini%indNACouplings(2) - ini%indNACouplings(1)
+<<<<<<< HEAD
     else
       this%tNaCoupling = .false.
     end if
     this%isCIopt = ini%isCIopt
     this%energyShiftCI = ini%energyShiftCI
+=======
+    endif
+
+>>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
     this%writeMulliken = ini%tMulliken
     this%writeCoeffs = ini%tCoeffs
     this%tGrndState = ini%tGrndState
@@ -331,8 +344,13 @@ contains
   !> Wrapper to call linear response calculations of excitations and forces in excited states.
   subroutine LinResp_addGradients(tSpin, this, iAtomStart, eigVec, eigVal, SSqrReal, filling,&
       & coords0, sccCalc, dqAt, species0, iNeighbour, img2CentCell, orb, skHamCont, skOverCont,&
+<<<<<<< HEAD
       & fdTagged, taggedWriter, hybridXc, excEnergy, allExcEnergies, excgradient, nacv, derivator,&
       & rhoSqr, deltaRho, occNatural, naturalOrbs)
+=======
+      & fdTagged, taggedWriter, rangeSep, excEnergy, allExcEnergies, excgradient,&
+      & derivator, rhoSqr, deltaRho, occNatural, naturalOrbs)
+>>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
 
     !> Is this a spin-polarized calculation
     logical, intent(in) :: tSpin
@@ -406,11 +424,16 @@ contains
     !> Energies of all solved states
     real(dp), intent(inout), allocatable :: allExcEnergies(:)
 
+<<<<<<< HEAD
     !> Contribution to forces from derivatives of excited state energy
     real(dp), intent(inout), allocatable :: excgradient(:,:,:)
 
     !> Non-adiabatic coupling vectors
     real(dp), intent(inout), allocatable :: nacv(:,:,:)
+=======
+    !> contribution to forces from derivative of excited state energy
+    real(dp), intent(inout), allocatable :: excgradient(:,:)
+>>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
 
     !> Occupations of the natural orbitals from the density matrix
     real(dp), intent(inout), allocatable :: occNatural(:)
@@ -433,6 +456,7 @@ contains
 
       if (allocated(occNatural)) then
         call LinRespGrad_old(this, iAtomStart, eigVec, eigVal, sccCalc, dqAt, coords0, SSqrReal,&
+<<<<<<< HEAD
             & filling, species0, iNeighbour, img2CentCell, orb, fdTagged, taggedWriter, hybridXc,&
             & excEnergy, allExcEnergies, deltaRho=deltaRho, shift=shiftPerAtom,&
             & skHamCont=skHamCont, skOverCont=skOverCont, excgrad=excgradient, nacv=nacv,&
@@ -443,6 +467,16 @@ contains
             & excEnergy, allExcEnergies, deltaRho=deltaRho, shift=shiftPerAtom,&
             & skHamCont=skHamCont, skOverCont=skOverCont, excgrad=excgradient, nacv=nacv,&
             & derivator=derivator, rhoSqr=rhoSqr)
+=======
+            & filling, species0, iNeighbour, img2CentCell, orb, fdTagged, taggedWriter, rangeSep,&
+            & excEnergy, allExcEnergies, deltaRho, shiftPerAtom, skHamCont, skOverCont,&
+            & excgradient, derivator, rhoSqr, occNatural, naturalOrbs)
+      else
+        call LinRespGrad_old(this, iAtomStart, eigVec, eigVal, sccCalc, dqAt, coords0, SSqrReal,&
+            & filling, species0, iNeighbour, img2CentCell, orb, fdTagged, taggedWriter, rangeSep,&
+            & excEnergy, allExcEnergies, deltaRho, shiftPerAtom, skHamCont, skOverCont,&
+            & excgradient, derivator, rhoSqr)
+>>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
       end if
 
     else

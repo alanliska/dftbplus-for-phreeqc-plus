@@ -14,7 +14,8 @@ module dftbp_capi
   use dftbp_common_globalenv, only : instanceSafeBuild
   use dftbp_dftbplus_qdepextpotgenc, only :&
       & getExtPotIfaceC, getExtPotGradIfaceC, TQDepExtPotGenC, TQDepExtPotGenC_init
-  use dftbp_mmapi, only : TDftbPlus, TDftbPlus_init, TDftbPlus_destruct, TDftbPlusInput, TDftbPlusAtomList
+  use dftbp_mmapi, only :&
+      & TDftbPlus, TDftbPlus_init, TDftbPlus_destruct, TDftbPlusInput, TDftbPlusAtomList
   use dftbp_type_linkedlist, only : TListString, append, init, destruct
   implicit none
   private
@@ -22,13 +23,13 @@ module dftbp_capi
 
   !> DFTB+ input tree
   type, bind(C) :: c_DftbPlusInput
-    type(c_ptr) :: pDftbPlusInput = c_null_ptr
+    type(c_ptr) :: pDftbPlusInput
   end type c_DftbPlusInput
 
 
   !> DFTB+ calculation
   type, bind(C) :: c_DftbPlus
-    type(c_ptr) :: instance = c_null_ptr
+    type(c_ptr) :: instance
   end type c_DftbPlus
 
 
@@ -36,13 +37,12 @@ module dftbp_capi
   type, extends(TDftbPlus) :: TDftbPlusC
     private
     type(TFileDescr) :: outputFile
-  contains
-    final :: TDftbPlusC_final
   end type TDftbPlusC
 
 
 contains
 
+<<<<<<< HEAD
   !> Finalises a DFTB+ input instance
 subroutine c_DftbPlusInput_final(handler) bind(C, name='dftbp_input_final')
 
@@ -60,6 +60,8 @@ subroutine c_DftbPlusInput_final(handler) bind(C, name='dftbp_input_final')
 end subroutine c_DftbPlusInput_final
 
 
+=======
+>>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
 
   !> Returns the current API version
   subroutine c_DftbPlus_api(major, minor, patch) bind(C, name='dftbp_api')
@@ -135,8 +137,8 @@ end subroutine c_DftbPlusInput_final
     !> The specific instance to be finalised
     type(TDftbPlusC), pointer :: instance
 
-    if (.not. c_associated(handler%instance)) return
     call c_f_pointer(handler%instance, instance)
+    call TDftbPlus_destruct(instance%TDftbPlus)
     deallocate(instance)
     handler%instance = c_null_ptr
 
@@ -557,6 +559,7 @@ end subroutine c_DftbPlusInput_final
   end subroutine c_DftbPlus_getCM5Charges
 
 
+<<<<<<< HEAD
   !> Obtain reference atomic charge, the effective Z for the valence orbitals
   subroutine c_DftbPlus_getRefCharges(handler, refCharges)&
       & bind(C, name='dftbp_get_ref_charges')
@@ -623,6 +626,8 @@ end subroutine c_DftbPlusInput_final
   end subroutine TDftbPlusC_final
 
 
+=======
+>>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
   !> Converts a 0-char terminated C-type string into a Fortran string.
   function fortranChar(cstring, maxlen)
 

@@ -81,9 +81,6 @@ contains
       case (12)
         call convert_12_13(root)
         version = 13
-      case (13)
-        call convert_13_14(root)
-        version = 14
       end select
     end do
 
@@ -834,6 +831,7 @@ contains
   end subroutine convert_12_13
 
 
+<<<<<<< HEAD
   !> Converts input from version 13 to 14. (Version 14 introduced in August 2023)
   subroutine convert_13_14(root)
 
@@ -858,6 +856,8 @@ contains
   end subroutine convert_13_14
 
 
+=======
+>>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
   !> Update values in the DftD3 block to match behaviour of v6 parser
   subroutine handleD3Defaults(root)
 

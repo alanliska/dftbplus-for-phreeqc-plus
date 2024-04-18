@@ -2,12 +2,17 @@
 
 ## Changes in this fork
 
+<<<<<<< HEAD
+=======
+* all source files (including the build/_deps subfolders) containing function ieee - substituted by huge() function (due to Android compiler limitations)
+>>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
 * added the stamp defining the release (formatout.F90)
 * IMPORTANT: dftb+ binaries linked with libopenblas.a do not work in x86 devices - it is recommended to use liblapack.a and libblas.a
 
 ## Compilation
 
 ```bash
+<<<<<<< HEAD
 $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/libblas.a/and/liblapack.a/
 $ export PATH=$PATH:/path/to/include
 $ export CFLAGS="-fPIC -pie -static"
@@ -19,6 +24,17 @@ $ export CXX=/path/to/your/cross-compiler
 $ export FC=/path/to/your/cross-compiler
 $ cmake .. -DCMAKE_INSTALL_PREFIX=/path/to/install -DWITH_MPI=FALSE -DWITH_OMP=FALSE -DWITH_ARPACK=TRUE -DWITH_PLUMED=FALSE -DWITH_SOCKETS=FALSE -DWITH_GPU=FALSE -DWITH_MAGMA=FALSE -DWITH_POISSON=FALSE -DARPACK_LIBRARY=/path/to/libarpack.a -DWITH_TBLITE=TRUE -DWITH_MBD=TRUE -DWITH_TRANSPORT=FALSE -DWITH_SDFTD3=TRUE -DWITH_API=TRUE -DWITH_CHIMES=FALSE -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DFETCHCONTENT_FULLY_DISCONNECTED=ON
 open link.txt files and if they contain libblas.a in front of liblapack.a, change their order; for shared objects (*.so) delete -static manually to avoid linking error
+=======
+$ unzip _deps.zip
+$ unzip external.zip
+$ mkdir build
+$ mv _deps ./build/
+$ cd build
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/libblas.a/and/liblapack.a/and/static_python_libs
+$ export PATH=$PATH:/path/to/include
+$ cmake .. -DCMAKE_INSTALL_PREFIX=/path/to/install -DWITH_MPI=FALSE -DWITH_OMP=FALSE -DWITH_ARPACK=TRUE -DWITH_PLUMED=FALSE -DWITH_SOCKETS=FALSE -DWITH_GPU=FALSE -DWITH_MAGMA=FALSE -DWITH_POISSON=FALSE -DARPACK_LIBRARY=/path/to/libarpack.a -DWITH_TBLITE=TRUE -DWITH_MBD=TRUE -DWITH_TRANSPORT=FALSE -DWITH_SDFTD3=TRUE -DWITH_API=TRUE -DWITH_CHIMES=FALSE -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DFETCHCONTENT_FULLY_DISCONNECTED=ON
+open link.txt files and if they contain -lpython3.9, substitute by path/to/libpython3.7m.a
+>>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
 $ make install
 ```
 
