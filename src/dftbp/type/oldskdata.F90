@@ -179,7 +179,6 @@ contains
       end if
     end do
 
-<<<<<<< HEAD
     if (present(splineRepInp)) then
       call readSplineRep(file%unit, fileName, splineRepInp, iSp1, iSp2)
     end if
@@ -187,18 +186,6 @@ contains
     ! Read hybrid xc-functional parameter(s)
     if (present(hybridXcSK)) then
       call readHybridXcParams(file%unit, fileName, hybridXcSK)
-=======
-    if (.not. present(splineRepIn)) then
-      call closeFile(file)
-      return
-    end if
-
-    call readSplineRep(file%unit, fileName, splineRepIn, iSp1, iSp2)
-
-    ! Read range-separated parameter(s)
-    if (present(rangeSepSK)) then
-      call readRangeSepParams(file%unit, fileName, rangeSepSK)
->>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
     end if
 
     call closeFile(file)
@@ -300,6 +287,8 @@ contains
     logical :: hasspline
     real(dp), allocatable :: xend(:)
 
+    rewind(fp)
+
     ! Look for spline
     do
       read(fp, "(A)", iostat=iostat) chdummy
@@ -385,13 +374,9 @@ contains
       call checkIoError(iErr, fname, "Unable to open file")
     end if
 
-<<<<<<< HEAD
     rewind(fd)
 
     ! Seek hybrid xc-functional extra tag in SK-file
-=======
-    ! Seek range-separated extra tag in SK-file
->>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
     do
       read(fd, "(A)", iostat=iErr) strDummy
       if (iErr /= 0) then

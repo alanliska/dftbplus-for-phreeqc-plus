@@ -43,19 +43,11 @@ module dftbp_derivs_perturb
   use dftbp_type_commontypes, only : TOrbitals
   use dftbp_type_densedescr, only : TDenseDescr
   use dftbp_type_parallelks, only : TParallelKS, TParallelKS_init
-<<<<<<< HEAD
   use, intrinsic :: ieee_arithmetic, only : ieee_value, ieee_quiet_nan
 #:if WITH_SCALAPACK
   use dftbp_dftb_populations, only : denseMullikenRealBlacs
   use dftbp_extlibs_mpifx, only : mpifx_allreduceip, mpifx_bcast, MPI_SUM
 #:else
-=======
-!  use, intrinsic :: ieee_arithmetic, only : ieee_value, ieee_quiet_nan
-#:if WITH_MPI
-  use dftbp_extlibs_mpifx, only : mpifx_allreduceip, MPI_SUM
-#:endif
-#:if not WITH_SCALAPACK
->>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
   use dftbp_dftb_sparse2dense, only : unpackHS
 #:endif
   implicit none
@@ -1500,8 +1492,7 @@ contains
         @:RAISE_ERROR(errStatus, -1, "SCC in perturbation is NOT converged, maximal SCC&
             & iterations exceeded")
       else
-!        qnan = ieee_value(1.0_dp, ieee_quiet_nan)
-	qnan = huge(1.0_dp)
+        qnan = ieee_value(1.0_dp, ieee_quiet_nan)
         dRho(:,:) = qnan
         dqOut(:,:,:) = qnan
         if (allocated(idRho)) idRho(:,:) = qnan

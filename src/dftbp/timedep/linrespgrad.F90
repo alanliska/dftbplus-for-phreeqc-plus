@@ -13,6 +13,8 @@
 module dftbp_timedep_linrespgrad
   use dftbp_common_accuracy, only : dp, elecTolMax, lc, rsp
   use dftbp_common_constants, only : Hartree__eV, au__Debye, cExchange
+  use dftbp_io_commonformats, only : format2U
+  use dftbp_common_globalenv, only : stdOut
   use dftbp_common_file, only : TFileDescr, openFile, closeFile, clearFile
   use dftbp_dftb_nonscc, only : TNonSccDiff
   use dftbp_dftb_hybridxc, only : THybridXcFunc, getDirectionalCamGammaPrimeValue
@@ -40,7 +42,7 @@ module dftbp_timedep_linrespgrad
   implicit none
 
   private
-  public :: LinRespGrad_old
+  public :: LinRespGrad_old, conicalIntersectionOptimizer
 
   !> Output files for results
   character(*), parameter :: transitionsOut = "TRA.DAT"
@@ -72,19 +74,11 @@ module dftbp_timedep_linrespgrad
 contains
 
   !> This subroutine analytically calculates excitations and gradients of excited state energies
-<<<<<<< HEAD
   !! based on time-dependent DFRT.
   subroutine LinRespGrad_old(this, iAtomStart, grndEigVecs, grndEigVal, sccCalc, dq, coord0,&
       & SSqr, filling, species0, iNeighbour, img2CentCell, orb, fdTagged, taggedWriter, hybridXc,&
       & omega, allOmega, deltaRho, shift, skHamCont, skOverCont, excgrad, nacv, derivator, rhoSqr,&
       & occNatural, naturalOrbs)
-=======
-  !> based on Time Dependent DFRT
-  subroutine LinRespGrad_old(this, iAtomStart, grndEigVecs, grndEigVal, sccCalc, dq, coord0, SSqr,&
-      & filling, species0, iNeighbour, img2CentCell, orb, fdTagged, taggedWriter, rangeSep, omega,&
-      & allOmega, deltaRho, shift, skHamCont, skOverCont, excgrad, derivator, rhoSqr, occNatural,&
-      & naturalOrbs)
->>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
 
     type(TLinResp), intent(inout) :: this
 
@@ -151,16 +145,11 @@ contains
     !> Overlap data
     type(TSlakoCont), intent(in), optional :: skOverCont
 
-<<<<<<< HEAD
     !> Excitation energy gradients with respect to atomic positions
     real(dp), intent(out), optional :: excgrad(:,:,:)
 
     !> Non-adiabatic coupling vectors
     real(dp), intent(out), optional :: nacv(:,:,:)
-=======
-    !> excitation energy gradient with respect to atomic positions
-    real(dp), intent(out), optional :: excgrad(:,:)
->>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
 
     !> Differentiator for H0 and S matrices
     class(TNonSccDiff), intent(in), optional :: derivator
@@ -182,7 +171,7 @@ contains
     real(dp), allocatable :: xpy(:,:), xmy(:,:), sqrOccIA(:)
     real(dp), allocatable :: xpym(:), xpyn(:), xmyn(:), xmym(:)
     real(dp), allocatable :: t(:,:,:), rhs(:), woo(:,:), wvv(:,:), wov(:)
-    real(dp), allocatable :: eval(:),transitionDipoles(:,:), nacv(:,:,:)
+    real(dp), allocatable :: eval(:),transitionDipoles(:,:)
     integer, allocatable :: win(:), getIA(:,:), getIJ(:,:), getAB(:,:)
 
     !> Array from pairs of single particles states to compound index - should replace with a more
@@ -196,8 +185,8 @@ contains
     integer :: mHOMO, mLUMO
     integer :: nxov, nxov_ud(2), nxov_r, nxov_d, nxov_rd, nxoo_ud(2), nxvv_ud(2)
     integer :: norb, nxoo, nxvv
-    integer :: i, j, iSpin, isym, iLev, nStartLev, nEndLev
-    integer :: nCoupLev, mCoupLev, numNAC, iNac
+    integer :: i, j, iSpin, isym, iLev, iSav, nStartLev, nEndLev
+    integer :: nCoupLev, mCoupLev, iNac
     integer :: nSpin
     character :: sym
     character(lc) :: tmpStr
@@ -206,15 +195,9 @@ contains
 
     integer :: nStat
 
-<<<<<<< HEAD
     !> Control variables
     logical :: tZVector, doAllZVectors, tFracOcc, doVanillaZvector
     logical :: tHybridXc = .false.
-=======
-    !> control variables
-    logical :: tZVector, tFracOcc
-    logical :: tRangeSep = .false.
->>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
 
     !> Should gradients be calculated
     logical :: tForces
@@ -267,6 +250,7 @@ contains
       call openFile(fdArnoldi, arpackOut, mode="w")
     end if
 
+    nstat = this%nstat
     nSpin = size(grndEigVal, dim=2)
     @:ASSERT(nSpin > 0 .and. nSpin <=2)
 
@@ -363,19 +347,11 @@ contains
       end if
     end if
 
-<<<<<<< HEAD
     !> Is a z vector required?
-=======
-    if (this%tNaCoupling) then
-      if (.not. tForces) then
-        call error('StateCouplings: CalculateForces must be set to Yes.')
-      end if
-    end if
-
-    !> is a z vector required?
->>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
     tZVector = tForces .or. this%writeMulliken .or. this%writeCoeffs .or. present(naturalOrbs) .or.&
-        & this%tWriteDensityMatrix
+        & this%tWriteDensityMatrix .or. this%tNaCoupling
+    doAllZVectors = tZVector .and. (nstat == 0) .and. (.not. this%isCIopt) .and. &
+        & (.not. this%tNaCoupling)
 
     !> Occ-occ/vir-vir charges only required for Z-vector/forces or TD-LC-DFTB
     if ((.not. tZVector) .and. this%tCacheChargesSame) then
@@ -383,7 +359,6 @@ contains
     endif
 
     ! Sanity checks
-    nstat = this%nStat
     if (nstat < 0 .and. this%symmetry /= "S") then
       call error("Linresp: Brightest mode only available for singlets.")
     end if
@@ -627,24 +602,14 @@ contains
     deallocate(transitionDipoles)
     deallocate(sposz)
 
-    if (.not. tZVector) then
-      if (nstat == 0) then
-        omega = 0.0_dp
-      else
-        omega = sqrt(eval(nstat))
-      end if
-    else
-      ! calculate Furche vectors and transition density matrix for various properties
+    ! Calculate Furche vectors and transition density matrix for various properties
+    if (tZVector) then
 
-<<<<<<< HEAD
       ! Differentiates between a standard Z-vector equation for transition densities and forces and
       ! a specific one for non-adiabatic couplings
       doVanillaZvector = .true.
       if (doAllZVectors) then
 
-=======
-      if (nstat == 0) then
->>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
         nStartLev = 1
         nEndLev = this%nExc
 
@@ -652,7 +617,6 @@ contains
           call error("Forces currently not available unless a single excited state is specified")
         end if
 
-<<<<<<< HEAD
       else if (this%isCIopt) then
 
         if (this%indNACouplings(1) == 0) then
@@ -670,11 +634,6 @@ contains
           doVanillaZvector = .false.
         end if
 
-=======
-      else
-        nStartLev = nstat
-        nEndLev = nstat
->>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
       end if
 
       if (this%tSpin) then
@@ -702,28 +661,19 @@ contains
         allocate(pc(norb, norb, nSpin))
       end if
 
-<<<<<<< HEAD
       if (doVanillaZvector) then
 
         do iLev = nStartLev, nEndLev
-=======
-      do iLev = nStartLev, nEndLev
->>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
 
-        omega = sqrt(eval(iLev))
+          omega = sqrt(eval(iLev))
 
         ! solve for Z and W to get excited state density matrix
-<<<<<<< HEAD
         call getZVectorEqRHS(tHybridXc, xpy(:,iLev), xmy(:,iLev), win, iAtomStart, nocc_ud,&
-=======
-        call getZVectorEqRHS(tRangeSep, xpy(:,iLev), xmy(:,iLev), win, iAtomStart, nocc_ud,&
->>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
             & transChrg, getIA, getIJ, getAB, iatrans, this%nAtom, species0, grndEigVal,&
             & ovrXev, grndEigVecs, gammaMat, lrGamma, this%spinW, omega, sym, rhs, t,&
             & wov, woo, wvv)
 
         call solveZVectorPrecond(rhs, this%tSpin, wij(:nxov_rd), win, nocc_ud, nvir_ud, nxoo_ud,&
-<<<<<<< HEAD
             & nxvv_ud, nxov_ud, nxov_rd, iaTrans, getIA, getIJ, getAB, this%nAtom, iAtomStart,&
             & ovrXev, grndEigVecs, filling, sqrOccIA(:nxov_rd), gammaMat, species0, this%spinW,&
             & this%onSiteMatrixElements, orb, transChrg, tHybridXc, lrGamma)
@@ -731,22 +681,12 @@ contains
          call calcWVectorZ(rhs, win, nocc_ud, getIA, getIJ, getAB, iaTrans, iAtomStart,&
             & ovrXev, grndEigVecs, gammaMat, grndEigVal, wov, woo, wvv, transChrg, species0,&
             & this%spinW, tHybridXc, lrGamma)
-=======
-            & nxvv_ud, nxov_ud, nxov_rd, iaTrans, getIA, getIJ, getAB, this%nAtom, iAtomStart, &
-            & ovrXev, grndEigVecs, filling, sqrOccIA(:nxov_rd), gammaMat, species0, this%spinW, &
-            & this%onSiteMatrixElements, orb, transChrg, tRangeSep, lrGamma)
 
-         call calcWVectorZ(rhs, win, nocc_ud, getIA, getIJ, getAB, iaTrans, iAtomStart,&
-            & ovrXev, grndEigVecs, gammaMat, grndEigVal, wov, woo, wvv, transChrg, species0, &
-            & this%spinW, tRangeSep, lrGamma)
->>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
+          call calcPMatrix(t, rhs, win, getIA, pc)
 
-        call calcPMatrix(t, rhs, win, getIA, pc)
-
-        call writeCoeffs(pc, grndEigVecs, filling, this%writeCoeffs, this%tGrndState, occNatural,&
+          call writeCoeffs(pc, grndEigVecs, filling, this%writeCoeffs, this%tGrndState, occNatural,&
             & naturalOrbs)
 
-<<<<<<< HEAD
           do iSpin = 1, nSpin
             ! Make MO to AO transformation of the excited density matrix
             call makeSimilarityTrans(pc(:,:,iSpin), grndEigVecs(:,:,iSpin))
@@ -772,39 +712,10 @@ contains
           end if
         end do
       end if
-=======
-        do iSpin = 1, nSpin
-          ! Make MO to AO transformation of the excited density matrix
-          call makeSimilarityTrans(pc(:,:,iSpin), grndEigVecs(:,:,iSpin))
-          call getExcMulliken(iAtomStart, pc(:,:,iSpin), SSqr, dqex(:,iSpin))
-        end do
-
-        if (this%tWriteDensityMatrix) then
-          call writeDM(iLev, pc, rhoSqr)
-        end if
-
-        if (this%writeMulliken) then
-          !> for now, only total Mulliken charges
-          call writeExcMulliken(sym, iLev, dq(:,1), sum(dqex,dim=2), coord0)
-        end if
-
-        if (tForces) then
-          call addGradients(sym, nxov_rd, this%nAtom, species0, iAtomStart, norb, nocc_ud,&
-              & getIA, getIJ, getAB, win, grndEigVecs, pc, ovrXev, dq, dqex, gammaMat, &
-              & lrGamma, this%HubbardU, this%spinW, shift, woo, wov, wvv, transChrg, xpy(:,iLev), &
-              & xmy(:,iLev), coord0, orb, skHamCont, skOverCont, derivator, rhoSqr, deltaRho,  &
-              & tRangeSep, rangeSep, excgrad)
-        end if
-
-      end do
->>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
 
       if (this%tNaCoupling) then
 
         ! This overwrites T, RHS and W
-        numNAC = this%indNACouplings(2) - this%indNACouplings(1) + 1
-        numNAC = numNAC * (numNAC-1) / 2
-        allocate(nacv(3, size(excgrad, dim=2), numNAC))
         allocate(xpyn, mold=xpy(:,1))
         allocate(xpym, mold=xpy(:,1))
         allocate(xmyn, mold=xpy(:,1))
@@ -845,6 +756,7 @@ contains
               xmym(:) = 0.0_dp
               xpyn(:) = 0.0_dp
               xmyn(:) = 0.0_dp
+
               call addGradients(sym, nxov_rd, this%nAtom, species0, iAtomStart, norb, nocc_ud,&
                 & getIA, getIJ, getAB, win, grndEigVecs, pc, ovrXev, dq, dqex, gammaMat,&
                 & lrGamma, this%HubbardU, this%spinW, shift, woo, wov, wvv, transChrg, xpym,&
@@ -900,17 +812,20 @@ contains
           end do
         end do
 
-        !> Convention to determine arbitrary phase 
-        call fixNACVPhase(nacv) 
+        !> Convention to determine arbitrary phase
+        call fixNACVPhase(nacv)
 
         call writeNACV(this%indNACouplings(1), this%indNACouplings(2), fdTagged, taggedWriter, nacv)
-
       end if
 
-      if (nstat == 0) then
-        omega = 0.0_dp
-      end if
+    end if
 
+    !> Omega has possibly been overwritten for CI optimization or NA couplings, but should always
+    !! refer to nstat
+    if (nstat == 0) then
+      omega = 0.0_dp
+    else
+      omega = sqrt(eval(nstat))
     end if
 
   end subroutine LinRespGrad_old
@@ -1313,14 +1228,14 @@ contains
     ! Small subSpaceDim is faster but leads to convergence problems
     ! if large number of excited states is needed
     if (subSpaceFactor < 2) then
-      write(tmpStr,'(A)') 'SubSpaceStratmann must be larger than one.'
+      write(tmpStr,'(A)') 'SubSpaceFactor for Stratmann solver must be larger than one.'
       call error(tmpStr)
     endif
     subSpaceDim = min(subSpaceFactor * nExc, nxov_rd)
     iterStrat = 1
     write(*,'(A)')
     write(*,'(A)') '>> Stratmann diagonalisation of response matrix'
-    write(*,'(3x,A,i6,A,i6)') 'Total dimension of A+B: ', nxov_rd, ' inital subspace: ',&
+    write(*,'(3x,A,i6,A,i6)') 'Total dimension of A+B: ', nxov_rd, ' initial subspace: ',&
         & subSpaceDim
     ! Memory available for subspace calcs
     memDim = min(subSpaceDim + 6 * nExc, nxov_rd)
@@ -1395,7 +1310,12 @@ contains
       ! Diagonalise in subspace
       call dsyev('V', 'U', subSpaceDim, mH, memDim, evalInt, workArray, workDim, info)
       if (info /= 0) then
-        write(tmpStr,'(A)') 'TDDFT diagonalisation. Increase SubSpaceStratmann.'
+        if (subSpaceFactor * nExc < nxov_rd) then
+          write(tmpStr,'(A)') 'TDDFT diagonalisation failure. Increase SubSpaceFactor.'
+        else
+          write(tmpStr,'(A)') 'TDDFT diagonalisation failure. Insufficient transitions available to&
+              & converge.'
+        end if
         call error(tmpStr)
       endif
 
@@ -5568,7 +5488,6 @@ contains
     end do
 
   end subroutine fixNACVPhase
-<<<<<<< HEAD
 
 
   !> Implements the CI optimizer of Bearpark et al. Chem. Phys. Lett. 223 269 (1994) with
@@ -5656,8 +5575,5 @@ contains
     write(stdOut, format2U) "Energy gap CI", deltaE, 'H', Hartree__eV * deltaE, 'eV'
 
   end subroutine conicalIntersectionOptimizer
-=======
-
->>>>>>> d2d06b2b6bf25f6d02d14c6a2b11c83baa84c469
 
 end module dftbp_timedep_linrespgrad
