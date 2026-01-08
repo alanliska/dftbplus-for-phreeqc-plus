@@ -1,3 +1,46 @@
+# This is the DFTB+ fork used in the mobile app PHREEQC plus
+
+## Changes in this fork
+
+* added the stamp defining the release (formatout.F90)
+* IMPORTANT: dftb+ binaries linked with libopenblas.a do not work in x86 devices - it is recommended to use liblapack.a and libblas.a
+
+## Compilation - serial version
+
+```bash
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/libblas.a/and/liblapack.a/
+$ export PATH=$PATH:/path/to/include
+$ export CFLAGS="-fPIC"
+$ export CXXFLAGS="-fPIC"
+$ export FFLAGS="-fPIC"
+$ export LDFLAGS="-fPIC -Wl,-z,max-page-size=16384"
+$ export CC=/path/to/your/cross-compiler
+$ export CXX=/path/to/your/cross-compiler
+$ export FC=/path/to/your/cross-compiler
+$ cmake .. -DCMAKE_INSTALL_PREFIX=/path/to/install -DWITH_MPI=FALSE -DWITH_OMP=FALSE -DWITH_ARPACK=TRUE -DWITH_PLUMED=FALSE -DWITH_SOCKETS=FALSE -DWITH_GPU=FALSE -DWITH_MAGMA=FALSE -DWITH_POISSON=FALSE -DARPACK_LIBRARY=/path/to/libarpack.a -DWITH_TBLITE=TRUE -DWITH_MBD=TRUE -DWITH_TRANSPORT=FALSE -DWITH_SDFTD3=TRUE -DWITH_API=TRUE -DWITH_CHIMES=TRUE
+open link.txt files and if they contain libblas.a in front of liblapack.a, change their order; for shared objects (*.so) delete -static manually to avoid linking error
+$ make install
+```
+
+## Compilation - parallel version
+
+```bash
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/libblas.a/and/liblapack.a/
+$ export PATH=$PATH:/path/to/include
+$ export CFLAGS="-pie -fPIC"
+$ export CXXFLAGS="-pie -fPIC"
+$ export FFLAGS="-pie -fPIC"
+$ export LDFLAGS="-static -pie -fPIC -Wl,-z,max-page-size=16384"
+$ export CC=/path/to/your/cross-compiler
+$ export CXX=/path/to/your/cross-compiler
+$ export FC=/path/to/your/cross-compiler
+$ cmake .. -DCMAKE_INSTALL_PREFIX=/path/to/install -DWITH_MPI=FALSE -DWITH_OMP=TRUE -DWITH_ARPACK=TRUE -DWITH_PLUMED=FALSE -DWITH_SOCKETS=FALSE -DWITH_GPU=FALSE -DWITH_MAGMA=FALSE -DWITH_POISSON=FALSE -DARPACK_LIBRARY=/path/to/libarpack.a -DWITH_TBLITE=TRUE -DWITH_MBD=TRUE -DWITH_TRANSPORT=FALSE -DWITH_SDFTD3=TRUE -DWITH_API=TRUE -DWITH_CHIMES=TRUE
+open link.txt files and if they contain libblas.a in front of liblapack.a, change their order; for shared objects (*.so) delete -static manually to avoid linking error ; substitute /path/libgomp.so for -lgomp and /path/libdl.so for -ldl
+$ make install
+```
+
+# ORIGINAL DESCRIPTION:
+
 *****************************************************************
 DFTB+: general package for performing fast atomistic calculations
 *****************************************************************
